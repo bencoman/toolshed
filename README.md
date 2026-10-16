@@ -7,9 +7,11 @@ the result off the page.
 
 ## Tools
 
-| Tool | What it does | Example call |
+| Tool | What it does | Live page |
 |---|---|---|
-| [domain-check](https://bencoman.github.io/toolshed/domain-check/) | Domain-name availability from the registry (RDAP), cross-checked with DNS | [`domain-check/?q=mathforge,numberly&tld=com,com.au,au`](https://bencoman.github.io/toolshed/domain-check/?q=mathforge,numberly&tld=com,com.au,au) |
+| [domain-check](domain-check/) | Domain-name availability from the registry (RDAP), cross-checked with DNS | [open](https://bencoman.github.io/toolshed/domain-check/) |
+
+Each tool's README lists its params, status words, result fields and limits.
 
 ## Calling a tool
 
@@ -27,47 +29,48 @@ Opened without params, a tool is an ordinary form and shows the last run made in
 ## The convention
 
 Every tool here follows the rules below, so a new tool can be called the moment it is pushed.
-`domain-check` is the reference implementation.
+[domain-check](domain-check/) is the reference implementation, and its README shows a real report.
 
 ### Files
 
-- One folder per tool, named in kebab-case: `/<tool>/index.html`. The folder name is the tool's id
-  everywhere: URL, report header, `window.toolshed.tool`, storage keys.
-- One self-contained HTML file: CSS and JS inline, no build step, no backend. A library may load from
-  a CDN only at a pinned exact version.
+- One folder per tool, named in kebab-case. The folder name is the tool's id everywhere: URL,
+  report header, `window.toolshed.tool`, storage keys.
+- `/<tool>/index.html` is the tool: one self-contained HTML file, CSS and JS inline, no build step,
+  no backend. A library may load from a CDN only at a pinned exact version.
+- `/<tool>/README.md` is the tool's reference (see [Tool README](#tool-readme)).
 - No assets shared between tools, so any tool can be copied out and used on its own.
-- Each page links back to the index (`../`) and has a "Call it from a URL" section listing its
-  params, status words and limits.
+- Each page links back to the index (`../`) and has a short "Call it from a URL" section giving its
+  params and status words.
 
 ### Inputs
 
 - All inputs come from the query string. `q` holds the main list of items. Other params are
-  lowercase and named for what they hold (`tld`, `from`, `limit`).
+  lowercase and named for what they hold (`from`, `limit`, `format`).
 - Lists are comma separated. Ignore whitespace and empty entries, and drop duplicates.
 - With the required params present, run once on load. Never re-run on a timer or on focus.
-- Cap the work per run and state the cap on the page, so a run finishes in about a minute. A
+- Cap the work per run and state the cap in the README, so a run finishes in about a minute. A
   truncated run says so on its summary line.
 
 ### Output: the report block
 
-A `<pre id="report" data-state="…">` holds the result as plain text:
+A `<pre id="report" data-state="…">` holds the result as plain text in this shape:
 
 ```
-DOMAIN-CHECK  DONE  6/6  2026-10-16 22:10 UTC
-available 2 · taken 3 · needs a look 1 · unknown 0
+<TOOL-ID>  <STATE>  <done>/<total>  <YYYY-MM-DD HH:MM> UTC
+<summary>
 
-mathforge.com     TAKEN         registrar Example Registrar, Inc. · since 2011-05-02 · expires 2027-05-02
-mathforge.com.au  AVAILABLE     Not in registry (RDAP 404) · DNS NXDOMAIN
+<key>  <STATUS>  <detail>
+<key>  <STATUS>  <detail>
 ```
-<sub>(Illustrative output.)</sub>
 
-- **Line 1, the header:** `<TOOL-ID in capitals>  <STATE>  <done>/<total>  <start time, UTC>`, with
-  two spaces between fields. `STATE` is one of `IDLE`, `RUNNING`, `DONE`, `CANCELLED`, `ERROR`.
+- **Line 1, the header:** the tool id in capitals, the run state, progress, and the start time in
+  UTC, with two spaces between fields. `STATE` is one of `IDLE`, `RUNNING`, `DONE`, `CANCELLED`,
+  `ERROR`.
 - **Line 2, the summary:** one line of counts or totals. For `ERROR` it reads
   `error: <what went wrong and how to fix the input>`.
-- **Line 3** is blank, then **one line per item:** `<key>  <STATUS>  <detail>`. Pad the key to a
-  common width. `STATUS` is a single capitalised word (hyphens allowed, e.g. `LIKELY-FREE`) from a
-  vocabulary the tool documents. Detail is free text.
+- **Line 3** is blank, then **one line per item.** Pad the key to a common width. `STATUS` is a
+  single capitalised word (hyphens allowed, e.g. `NOT-FOUND`) from the vocabulary in the tool's
+  README. Detail is free text.
 - Every item ends with a final status. Nothing is left pending: an item that failed gets `UNKNOWN`
   or `ERROR` with the reason in its detail.
 - `data-state` on `#report` is `STATE` in lowercase.
@@ -80,16 +83,16 @@ The same result as an object, kept up to date as the run progresses:
 
 ```js
 window.toolshed = {
-  tool: "domain-check",
+  tool: "<tool-id>",
   version: 1,              // bump when the output shape changes
   state: "done",           // idle | running | done | cancelled | error
-  done: 6,
-  total: 6,
+  done: 3,
+  total: 3,
   startedAt: "2026-10-16T22:10:04Z",
-  summary: "available 2 · taken 3 · needs a look 1 · unknown 0",
+  summary: "<summary line>",
   error: null,             // message when state is "error"
   results: [
-    { key: "mathforge.com", status: "TAKEN", detail: "…" /*, tool-specific fields */ }
+    { key: "<key>", status: "<STATUS>", detail: "<detail>" /*, tool-specific fields */ }
   ]
 };
 ```
@@ -106,14 +109,28 @@ window.toolshed = {
   `try`/`catch`.
 - **Accessible and responsive.** The page works at phone width and in light and dark mode.
 
+### Tool README
+
+Each `/<tool>/README.md` has these sections, in this order:
+
+1. **What it does:** one paragraph, plus the live link.
+2. **Call:** an example URL and a table of params (name, required, meaning, default).
+3. **Statuses:** every `STATUS` word and what it means, plus how the summary line is counted.
+4. **Result fields:** the tool-specific fields in each `window.toolshed.results[]` entry.
+5. **Example:** a real report from a test call, with the URL that produced it.
+6. **Sources and limits:** the APIs it calls, caps and rate limits, and known gaps.
+
+The page's "Call it from a URL" section is the short form of sections 2 and 3, for whoever lands on
+the page. The README is the full reference; keep the two in step.
+
 ## Adding a tool
 
-1. Create `/<tool>/index.html` following the convention.
+1. Create `/<tool>/index.html` and `/<tool>/README.md` following the convention.
 2. Add a row to the Tools table above and to the list in `index.html`.
 3. Push to `main`. Pages redeploys in a minute or two.
-4. Make one URL call and read the report back before relying on it.
+4. Make one URL call and paste its report into the README's Example section.
 
 ## Hosting
 
 GitHub Pages, deployed from `main`, folder `/`. The empty `.nojekyll` file turns off Jekyll so every
-file is served exactly as committed.
+file is served exactly as committed. READMEs are for reading on GitHub; the pages are the tools.
