@@ -1,0 +1,623 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Domain Check</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a single-column ledger. Input panel on top, a results table that fills row by row as
+   lookups return, and a fixed-width plain-text report at the foot that people and scripts can copy. */
+:root{
+  --bg:#f5f7f4; --surface:#ffffff; --fg:#1b221e; --muted:#5d6a63; --line:#d6dcd7; --line-strong:#aeb8b1;
+  --accent:#0e5a4b; --accent-fg:#ffffff; --accent-soft:#dcefe9;
+  --ok:#1d7a3e; --ok-bg:#e1f3e7;
+  --bad:#b3302a; --bad-bg:#fbe6e4;
+  --warn:#8f5d00; --warn-bg:#fff1d3;
+  --info:#4a49a6; --info-bg:#e8e8fa;
+  --font-display:"Fraunces", Georgia, "Times New Roman", serif;
+  --font-body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono:"IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#121715; --surface:#1a211d; --fg:#e6ebe7; --muted:#97a39c; --line:#2b3530; --line-strong:#465249;
+    --accent:#5cc8ab; --accent-fg:#0e1a16; --accent-soft:#193a32;
+    --ok:#6fd38e; --ok-bg:#153221;
+    --bad:#ff8c82; --bad-bg:#3b1c1a;
+    --warn:#f2b94c; --warn-bg:#392b10;
+    --info:#aaa9ff; --info-bg:#25254a;
+    color-scheme: dark;
+  }
+}
+*,*::before,*::after{ box-sizing:border-box; }
+html,body{ margin:0; }
+body{ background:var(--bg); color:var(--fg); font:15px/1.5 var(--font-body); }
+.wrap{
+  max-width:1040px; margin:0 auto;
+  padding-block:28px 56px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+  display:grid; gap:24px;
+}
+header h1{ font:600 clamp(30px,5vw,40px)/1.1 var(--font-display); margin:0; letter-spacing:-0.01em; text-wrap:balance; }
+header p{ margin:6px 0 0; color:var(--muted); max-width:62ch; }
+header .back{ display:inline-block; margin-bottom:10px; font-size:13px; font-weight:500; color:var(--accent); text-decoration:none; }
+header .back:hover{ text-decoration:underline; }
+.panel{ background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:18px; display:grid; gap:16px; }
+.inputs{ display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr); gap:18px; }
+@media (max-width:720px){ .inputs{ grid-template-columns:1fr; } }
+.field{ display:grid; gap:6px; min-width:0; }
+.field > label, .field > .label{ font-size:12px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--muted); }
+.hint{ font-size:13px; color:var(--muted); margin:0; }
+textarea{
+  width:100%; min-height:150px; resize:vertical; font:14px/1.5 var(--font-mono);
+  color:var(--fg); background:var(--bg); border:1px solid var(--line-strong); border-radius:8px; padding:10px 12px;
+}
+textarea:focus, input:focus, button:focus-visible, summary:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+.chips{ display:flex; flex-wrap:wrap; gap:8px; }
+.chip{ position:relative; display:inline-flex; }
+.chip input{ position:absolute; inset:0; opacity:0; margin:0; cursor:pointer; }
+.chip span{
+  display:inline-block; padding:5px 11px; border-radius:999px; border:1px solid var(--line-strong);
+  font:500 13px/1.3 var(--font-mono); color:var(--muted); background:var(--surface); user-select:none;
+}
+.chip input:checked + span{ background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
+.chip input:focus-visible + span{ outline:2px solid var(--accent); outline-offset:2px; }
+.add-tld{ display:flex; gap:8px; }
+.add-tld input{
+  flex:1 1 120px; min-width:0; font:14px var(--font-mono); color:var(--fg); background:var(--bg);
+  border:1px solid var(--line-strong); border-radius:8px; padding:7px 10px;
+}
+button{
+  font:500 14px var(--font-body); color:var(--fg); background:var(--surface); border:1px solid var(--line-strong);
+  border-radius:8px; padding:8px 14px; cursor:pointer;
+}
+button:hover{ border-color:var(--accent); }
+button.primary{ background:var(--accent); color:var(--accent-fg); border-color:var(--accent); font-weight:600; padding-inline:18px; }
+button.primary:hover{ filter:brightness(1.08); }
+button:disabled{ opacity:0.55; cursor:default; }
+.actions{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+.actions .spacer{ flex:1; }
+.status{ display:grid; gap:6px; }
+.status-line{ display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px 16px; font-size:13px; color:var(--muted); }
+.bar{ height:4px; background:var(--line); border-radius:2px; overflow:hidden; }
+.bar > i{ display:block; height:100%; width:0; background:var(--accent); transition:width 200ms ease; }
+@media (prefers-reduced-motion: reduce){ .bar > i{ transition:none; } }
+.summary{ display:flex; flex-wrap:wrap; gap:8px 14px; font-size:13px; }
+.summary b{ font-weight:600; font-variant-numeric:tabular-nums; }
+.results h2, .report h2{ font:600 20px/1.2 var(--font-display); margin:0; }
+.section-head{ display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:8px 16px; margin-bottom:10px; }
+.section-head .meta{ font-size:13px; color:var(--muted); }
+.empty{ color:var(--muted); border:1px dashed var(--line-strong); border-radius:10px; padding:28px 18px; text-align:center; }
+.table-wrap{ overflow-x:auto; border:1px solid var(--line); border-radius:10px; background:var(--surface); }
+table{ border-collapse:collapse; width:100%; min-width:640px; font-size:14px; }
+th, td{ text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
+th{ font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); font-weight:600; background:var(--bg); }
+tbody tr:last-child td{ border-bottom:0; }
+td.domain{ font-family:var(--font-mono); font-weight:500; white-space:nowrap; }
+td.detail{ color:var(--muted); min-width:220px; }
+td.dns, td.src{ font-family:var(--font-mono); font-size:12.5px; color:var(--muted); }
+.pill{
+  display:inline-block; padding:2px 9px; border-radius:999px; font:600 12px/1.6 var(--font-body);
+  white-space:nowrap; border:1px solid transparent;
+}
+.pill.free{ background:var(--ok-bg); color:var(--ok); }
+.pill.taken, .pill.taken-dns{ background:var(--bad-bg); color:var(--bad); }
+.pill.free-dns, .pill.unknown{ background:var(--warn-bg); color:var(--warn); }
+.pill.check{ background:var(--info-bg); color:var(--info); }
+.pill.pending{ background:var(--bg); color:var(--muted); border-color:var(--line); }
+.pill.invalid, .pill.cancelled{ background:var(--bg); color:var(--muted); border-color:var(--line-strong); }
+.pill.pending::before{ content:""; display:inline-block; width:8px; height:8px; margin-right:6px; border-radius:50%; border:2px solid var(--line-strong); border-top-color:var(--accent); vertical-align:-1px; animation:spin 0.9s linear infinite; }
+@keyframes spin{ to{ transform:rotate(360deg); } }
+@media (prefers-reduced-motion: reduce){ .pill.pending::before{ animation:none; } }
+pre.report-text{
+  margin:0; padding:14px 16px; background:var(--surface); border:1px solid var(--line); border-radius:10px;
+  font:13px/1.55 var(--font-mono); color:var(--fg); overflow-x:auto; white-space:pre;
+}
+.copied{ font-size:13px; color:var(--ok); }
+details{ border-top:1px solid var(--line); padding-top:12px; }
+details summary{ cursor:pointer; font-weight:600; }
+details p, details li{ color:var(--muted); font-size:14px; }
+details code, .hint code{ font-family:var(--font-mono); font-size:0.92em; background:var(--surface); border:1px solid var(--line); border-radius:4px; padding:0 4px; }
+details pre{ font:13px/1.5 var(--font-mono); background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:10px 12px; overflow-x:auto; }
+footer{ font-size:12.5px; color:var(--muted); }
+.visually-hidden{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <a class="back" href="../">← Toolshed</a>
+  <h1>Domain Check</h1>
+  <p>Availability straight from the registries, looked up by your browser: RDAP for the authoritative answer, DNS as the cross-check.</p>
+</header>
+
+<section class="panel" aria-label="Lookup">
+  <div class="inputs">
+    <div class="field">
+      <label for="names">Names</label>
+      <textarea id="names" spellcheck="false" placeholder="mathforge&#10;numberly&#10;example.com"></textarea>
+      <p class="hint">One per line or comma separated. A bare word gets every selected ending; anything with a dot is checked as typed.</p>
+    </div>
+    <div class="field">
+      <span class="label" id="tld-label">Endings</span>
+      <div class="chips" id="tlds" role="group" aria-labelledby="tld-label"></div>
+      <div class="add-tld">
+        <label for="new-tld" class="visually-hidden">Add an ending</label>
+        <input id="new-tld" placeholder="add ending, e.g. academy" autocomplete="off">
+        <button type="button" id="add-tld">Add</button>
+      </div>
+    </div>
+  </div>
+  <div class="actions">
+    <button type="button" class="primary" id="run">Check</button>
+    <button type="button" id="cancel" hidden>Cancel</button>
+    <button type="button" id="clear">Clear</button>
+    <span class="spacer"></span>
+    <span class="hint" id="source-note"></span>
+  </div>
+  <div class="status" aria-live="polite">
+    <div class="status-line"><span id="status">Idle</span><span class="summary" id="summary"></span></div>
+    <div class="bar"><i id="bar"></i></div>
+  </div>
+</section>
+
+<section class="results" aria-label="Results">
+  <div class="section-head">
+    <h2>Results</h2>
+    <span class="meta" id="results-meta"></span>
+  </div>
+  <div class="empty" id="empty">Enter some names and press Check. Each candidate gets one registry (RDAP) lookup and one DNS lookup; rows fill in as answers arrive.</div>
+  <div class="table-wrap" id="table-wrap" hidden>
+    <table>
+      <thead><tr><th>Domain</th><th>Status</th><th>Details</th><th>DNS</th><th>RDAP server</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</section>
+
+<section class="report" aria-label="Report">
+  <div class="section-head">
+    <h2>Report</h2>
+    <span class="actions"><span class="copied" id="copied"></span><button type="button" id="copy">Copy report</button></span>
+  </div>
+  <pre class="report-text" id="report" data-state="idle">DOMAIN-CHECK  IDLE  0/0</pre>
+</section>
+
+<details>
+  <summary>Call it from a URL</summary>
+  <p>Put the names and endings in the query string and the check runs on load:</p>
+  <pre>?q=mathforge,numberly&amp;tld=com,com.au,au</pre>
+  <ul>
+    <li><code>q</code> — names, comma separated. Bare words get every ending in <code>tld</code>; anything containing a dot is checked as typed.</li>
+    <li><code>tld</code> — endings, comma separated. Leave it out for <code>com,com.au,au</code>.</li>
+  </ul>
+  <p>The report's first line reads <code>DOMAIN-CHECK  DONE  n/n</code> once every lookup has finished (<code>RUNNING</code> before that); <code>#report</code> carries the same state in <code>data-state</code>, and <code>window.toolshed</code> holds the result as JSON. One status word per line: <code>AVAILABLE</code>, <code>TAKEN</code>, <code>LIKELY-FREE</code>, <code>TAKEN-DNS</code>, <code>CHECK</code>, <code>UNKNOWN</code>, <code>INVALID</code>. Follows the <a href="https://github.com/bencoman/toolshed#the-convention">toolshed convention</a>.</p>
+</details>
+
+<details>
+  <summary>How it decides</summary>
+  <ul>
+    <li><b>Taken</b> — the registry's RDAP server returned a record. Registrar and expiry come from that record.</li>
+    <li><b>Available</b> — the registry's RDAP server answered 404 for the name. This is the strongest "free" signal a public lookup gives.</li>
+    <li><b>Likely free / Taken (DNS)</b> — no usable RDAP answer for that ending (no server listed, blocked, or rate limited), so the call rests on DNS alone: NXDOMAIN suggests free, delegated name servers mean taken.</li>
+    <li><b>Check</b> — RDAP and DNS disagree. Look it up at a registrar before deciding.</li>
+    <li><b>Unknown</b> — neither lookup gave an answer. Usually a rate limit; wait a minute and re-run those rows.</li>
+  </ul>
+  <p>Available at the registry does not always mean buyable at the standard price. Registries hold back reserved and premium names, and <code>.au</code> names carry eligibility rules (an Australian presence, and for <code>com.au</code> an ABN or ACN plus a connection to the name).</p>
+  <p>Lookups: RDAP servers from the IANA bootstrap list (rdap.org as the fallback redirector, throttled to its 10 requests per 10 seconds), <code>.au</code> via auDA's server, DNS over HTTPS from Google Public DNS with Cloudflare as fallback. Nothing else leaves the browser; the last run is kept in this browser's local storage only.</p>
+</details>
+
+<footer>Four lookups run at a time. Runs are capped at 60 domains to stay under registry rate limits.</footer>
+
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const PRESET_TLDS = ['com','com.au','au','net.au','org.au','org','net','io','co','dev','app','ai','xyz'];
+const DEFAULT_TLDS = ['com','com.au','au'];
+const RDAP_OVERRIDES = { 'au': 'https://rdap.cctld.au/rdap/' };
+const MAX_DOMAINS = 60;
+const CONCURRENCY = 4;
+const VALID = /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+const CODEWORD = { taken:'TAKEN', free:'AVAILABLE', 'taken-dns':'TAKEN-DNS', 'free-dns':'LIKELY-FREE', check:'CHECK', unknown:'UNKNOWN', invalid:'INVALID', pending:'PENDING', cancelled:'CANCELLED' };
+
+const els = {
+  names: $('#names'), tlds: $('#tlds'), newTld: $('#new-tld'), addTld: $('#add-tld'),
+  run: $('#run'), cancel: $('#cancel'), clear: $('#clear'), status: $('#status'), bar: $('#bar'),
+  summary: $('#summary'), rows: $('#rows'), empty: $('#empty'), tableWrap: $('#table-wrap'),
+  report: $('#report'), copy: $('#copy'), copied: $('#copied'), source: $('#source-note'), meta: $('#results-meta'),
+};
+
+const TOOL = 'domain-check';
+const TOOL_VERSION = 1;
+const store = {
+  get(k){ try { return JSON.parse(localStorage.getItem(`toolshed:${TOOL}:${k}`)); } catch { return null; } },
+  set(k, v){ try { localStorage.setItem(`toolshed:${TOOL}:${k}`, JSON.stringify(v)); } catch {} },
+};
+
+let abort = null;
+let results = [];
+let runState = 'IDLE';
+let runStarted = null;
+let runError = null;
+let runNote = '';
+
+/* ---------- helpers ---------- */
+const sleep = (ms, signal) => new Promise((resolve, reject) => {
+  const t = setTimeout(resolve, ms);
+  signal?.addEventListener('abort', () => { clearTimeout(t); reject(new DOMException('Aborted', 'AbortError')); }, { once: true });
+});
+
+const hostLast = new Map();
+async function hostSlot(host, gapMs, signal){
+  const slot = Math.max(Date.now(), (hostLast.get(host) || 0) + gapMs);
+  hostLast.set(host, slot);
+  const wait = slot - Date.now();
+  if (wait > 0) await sleep(wait, signal);
+}
+
+function parseNames(text){
+  return text.toLowerCase().split(/[\s,;]+/)
+    .map(s => s.trim().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/[\/.]+$/, ''))
+    .filter(Boolean);
+}
+
+function buildTargets(names, tlds){
+  const out = []; const seen = new Set();
+  for (const n of names){
+    const list = n.includes('.') ? [n] : tlds.map(t => `${n}.${t}`);
+    for (const d of list){ if (!seen.has(d)){ seen.add(d); out.push(d); } }
+  }
+  return out;
+}
+
+/* ---------- RDAP ---------- */
+async function loadBootstrap(signal){
+  const cached = store.get('rdap-bootstrap');
+  if (cached && cached.map && Date.now() - cached.t < 86400e3) return cached.map;
+  try {
+    const res = await fetch('https://data.iana.org/rdap/dns.json', { signal });
+    if (!res.ok) throw new Error('bootstrap ' + res.status);
+    const j = await res.json();
+    const map = {};
+    for (const [tlds, urls] of j.services || []){
+      const u = (urls || []).find(x => x.startsWith('https://')) || (urls || [])[0];
+      if (!u) continue;
+      for (const t of tlds) map[t.toLowerCase()] = u;
+    }
+    store.set('rdap-bootstrap', { t: Date.now(), map });
+    return map;
+  } catch (e) {
+    if (signal.aborted) throw e;
+    return null;
+  }
+}
+
+function rdapBaseFor(domain, map){
+  const parts = domain.split('.');
+  for (let i = 1; i < parts.length; i++){
+    const suf = parts.slice(i).join('.');
+    if (map && map[suf]) return { base: map[suf], via: 'iana' };
+  }
+  for (let i = 1; i < parts.length; i++){
+    const suf = parts.slice(i).join('.');
+    if (RDAP_OVERRIDES[suf]) return { base: RDAP_OVERRIDES[suf], via: 'override' };
+  }
+  return null;
+}
+
+async function rdapLookup(domain, map, signal){
+  let url, source;
+  const found = rdapBaseFor(domain, map);
+  if (found){
+    url = found.base.replace(/\/?$/, '/') + 'domain/' + domain;
+    source = safeHost(url);
+    await hostSlot(source, 250, signal);
+  } else {
+    url = 'https://rdap.org/domain/' + domain;
+    source = 'rdap.org';
+    await hostSlot('rdap.org', 1200, signal);
+  }
+  let res;
+  try {
+    res = await fetch(url, { headers: { Accept: 'application/rdap+json, application/json' }, signal });
+  } catch (e) {
+    if (signal.aborted) throw e;
+    return { state: 'unreachable', source, detail: 'RDAP request blocked (CORS or network)' };
+  }
+  const finalHost = safeHost(res.url) || source;
+  if (res.status === 200){
+    let data = null; try { data = await res.json(); } catch {}
+    if (data && typeof data.errorCode === 'number') return { state: 'error', source: finalHost, detail: 'RDAP error ' + data.errorCode };
+    return { state: 'registered', source: finalHost, data };
+  }
+  if (res.status === 404){
+    if (finalHost === 'rdap.org') return { state: 'no-server', source: finalHost, detail: 'No RDAP server known for this ending' };
+    return { state: 'not-found', source: finalHost };
+  }
+  if (res.status === 429) return { state: 'rate-limited', source: finalHost, detail: 'RDAP rate limit (429)' };
+  return { state: 'error', source: finalHost, detail: 'RDAP HTTP ' + res.status };
+}
+
+function safeHost(u){ try { return new URL(u).host; } catch { return ''; } }
+
+function registrarOf(j){
+  const e = (j.entities || []).find(x => (x.roles || []).includes('registrar'));
+  if (!e) return '';
+  const props = Array.isArray(e.vcardArray) ? e.vcardArray[1] : null;
+  const fn = Array.isArray(props) ? props.find(p => Array.isArray(p) && p[0] === 'fn') : null;
+  return (fn && typeof fn[3] === 'string' && fn[3]) || e.handle || '';
+}
+function eventDate(j, action){
+  const ev = (j.events || []).find(x => x.eventAction === action);
+  return ev && typeof ev.eventDate === 'string' ? ev.eventDate.slice(0, 10) : '';
+}
+
+/* ---------- DNS ---------- */
+async function dnsLookup(domain, signal){
+  const providers = [
+    { name: 'Google', url: `https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=NS`, headers: {} },
+    { name: 'Cloudflare', url: `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=NS`, headers: { Accept: 'application/dns-json' } },
+  ];
+  for (const p of providers){
+    try {
+      const res = await fetch(p.url, { headers: p.headers, signal });
+      if (!res.ok) continue;
+      const j = await res.json();
+      const ns = (j.Answer || []).filter(a => a.type === 2).map(a => String(a.data).replace(/\.$/, ''));
+      if (j.Status === 3) return { state: 'nxdomain', ns: [], via: p.name };
+      if (j.Status === 0) return { state: ns.length ? 'delegated' : 'nodata', ns, via: p.name };
+      return { state: 'error', ns: [], via: p.name, detail: 'DNS status ' + j.Status };
+    } catch (e) {
+      if (signal.aborted) throw e;
+    }
+  }
+  return { state: 'unreachable', ns: [], via: '' };
+}
+
+/* ---------- classification ---------- */
+function classify(dns, rdap){
+  const dnsNote = dns.state === 'delegated' ? `DNS delegated (${dns.ns.length} NS)`
+    : dns.state === 'nxdomain' ? 'DNS NXDOMAIN'
+    : dns.state === 'nodata' ? 'DNS has no NS records'
+    : 'DNS gave no answer';
+  if (rdap.state === 'registered'){
+    const j = rdap.data || {};
+    const bits = [];
+    const reg = registrarOf(j); if (reg) bits.push('registrar ' + reg);
+    const since = eventDate(j, 'registration'); if (since) bits.push('since ' + since);
+    const exp = eventDate(j, 'expiration'); if (exp) bits.push('expires ' + exp);
+    const flags = (j.status || []).filter(s => /pending delete|redemption|inactive/i.test(String(s)));
+    if (flags.length) bits.push(flags.join(', '));
+    return { code: 'taken', label: 'Taken', detail: bits.join(' · ') || 'Registered (RDAP record found)' };
+  }
+  if (rdap.state === 'not-found'){
+    if (dns.state === 'delegated') return { code: 'check', label: 'Check', detail: 'RDAP says not found, but ' + dnsNote.toLowerCase() };
+    return { code: 'free', label: 'Available', detail: 'Not in registry (RDAP 404) · ' + dnsNote };
+  }
+  const why = rdap.detail || (rdap.state === 'no-server' ? 'No RDAP server for this ending' : 'RDAP unavailable');
+  if (dns.state === 'delegated') return { code: 'taken-dns', label: 'Taken (DNS)', detail: why + ' · ' + dnsNote };
+  if (dns.state === 'nxdomain') return { code: 'free-dns', label: 'Likely free', detail: why + ' · ' + dnsNote };
+  return { code: 'unknown', label: 'Unknown', detail: why + ' · ' + dnsNote };
+}
+
+async function checkOne(r, map, signal){
+  const [dns, first] = await Promise.all([dnsLookup(r.domain, signal), rdapLookup(r.domain, map, signal)]);
+  let rdap = first;
+  if (rdap.state === 'rate-limited'){ await sleep(3000, signal); rdap = await rdapLookup(r.domain, map, signal); }
+  const c = classify(dns, rdap);
+  r.code = c.code; r.label = c.label; r.detail = c.detail;
+  r.dns = dns.state === 'delegated' ? dns.ns.slice(0, 2).join(', ') + (dns.ns.length > 2 ? ` +${dns.ns.length - 2}` : '')
+    : dns.state === 'nxdomain' ? 'NXDOMAIN'
+    : dns.state === 'nodata' ? 'no NS'
+    : '—';
+  r.source = rdap.source || '';
+}
+
+/* ---------- rendering ---------- */
+function renderTlds(selected){
+  const known = [...new Set([...PRESET_TLDS, ...selected])];
+  els.tlds.textContent = '';
+  for (const t of known){
+    const label = document.createElement('label'); label.className = 'chip';
+    const input = document.createElement('input'); input.type = 'checkbox'; input.value = t; input.id = 'tld-' + t.replace(/\./g, '-'); input.checked = selected.includes(t);
+    const span = document.createElement('span'); span.textContent = '.' + t;
+    label.append(input, span); els.tlds.appendChild(label);
+  }
+}
+function selectedTlds(){ return [...els.tlds.querySelectorAll('input:checked')].map(i => i.value); }
+
+function rowFor(r){
+  let tr = els.rows.querySelector(`tr[data-domain="${CSS.escape(r.domain)}"]`);
+  if (!tr){
+    tr = document.createElement('tr'); tr.dataset.domain = r.domain;
+    for (const cls of ['domain', 'status', 'detail', 'dns', 'src']){ const td = document.createElement('td'); td.className = cls; tr.appendChild(td); }
+    els.rows.appendChild(tr);
+  }
+  return tr;
+}
+function renderRow(r){
+  const tr = rowFor(r);
+  tr.children[0].textContent = r.domain;
+  const pill = document.createElement('span'); pill.className = 'pill ' + r.code; pill.textContent = r.label;
+  tr.children[1].textContent = ''; tr.children[1].appendChild(pill);
+  tr.children[2].textContent = r.detail || '';
+  tr.children[3].textContent = r.dns || '';
+  tr.children[4].textContent = r.source || '';
+}
+function renderAll(){
+  els.rows.textContent = '';
+  const any = results.length > 0;
+  els.empty.hidden = any; els.tableWrap.hidden = !any;
+  for (const r of results) renderRow(r);
+  renderSummary(); renderReport();
+}
+function counts(){
+  const c = { free: 0, taken: 0, maybe: 0, unknown: 0, done: 0 };
+  for (const r of results){
+    if (r.code === 'pending') continue;
+    c.done++;
+    if (r.code === 'free') c.free++;
+    else if (r.code === 'taken' || r.code === 'taken-dns') c.taken++;
+    else if (r.code === 'free-dns' || r.code === 'check') c.maybe++;
+    else c.unknown++;
+  }
+  return c;
+}
+function renderSummary(){
+  if (!results.length){ els.summary.textContent = ''; els.meta.textContent = ''; return; }
+  const c = counts();
+  els.summary.textContent = '';
+  const add = (n, word) => { const s = document.createElement('span'); const b = document.createElement('b'); b.textContent = n; s.append(b, ' ' + word); els.summary.appendChild(s); };
+  add(c.free, 'available'); add(c.taken, 'taken'); add(c.maybe, 'needs a look'); add(c.unknown, 'unknown');
+  els.meta.textContent = `${c.done}/${results.length} checked`;
+}
+function renderReport(){
+  const c = counts();
+  const stamp = runStarted ? new Date(runStarted).toISOString().replace('T', ' ').slice(0, 16) + ' UTC' : '';
+  const summary = runError ? `error: ${runError}`
+    : results.length ? `available ${c.free} · taken ${c.taken} · needs a look ${c.maybe} · unknown ${c.unknown}${runNote ? ' · ' + runNote : ''}`
+    : '';
+  const lines = [`${TOOL.toUpperCase()}  ${runState}  ${c.done}/${results.length}  ${stamp}`.trimEnd()];
+  if (summary) lines.push(summary);
+  if (results.length) lines.push('');
+  const w = Math.min(40, Math.max(12, ...results.map(r => r.domain.length)));
+  for (const r of results) lines.push(`${r.domain.padEnd(w)}  ${(CODEWORD[r.code] || r.code.toUpperCase()).padEnd(12)}  ${r.detail || ''}`.trimEnd());
+  els.report.textContent = lines.join('\n');
+  els.report.dataset.state = runState.toLowerCase();
+  document.title = (runState === 'RUNNING' ? `${c.done}/${results.length} · ` : runState === 'DONE' ? 'Done · ' : '') + 'Domain Check';
+  window.toolshed = {
+    tool: TOOL, version: TOOL_VERSION, state: runState.toLowerCase(),
+    done: c.done, total: results.length,
+    startedAt: runStarted ? new Date(runStarted).toISOString().replace(/\.\d+Z$/, 'Z') : null,
+    summary, error: runError,
+    results: results.map(r => ({ key: r.domain, status: CODEWORD[r.code] || r.code.toUpperCase(), detail: r.detail || '', dns: r.dns || '', rdapServer: r.source || '' })),
+  };
+}
+function failRun(msg){
+  results = []; runState = 'ERROR'; runError = msg; runNote = ''; runStarted = Date.now();
+  renderAll(); setProgress(0, 0); setStatus(msg);
+}
+function setStatus(text){ els.status.textContent = text; }
+function setProgress(done, total){ els.bar.style.width = total ? Math.round(100 * done / total) + '%' : '0%'; }
+function setRunning(on){
+  els.run.disabled = on; els.cancel.hidden = !on; els.names.disabled = on;
+  els.tlds.querySelectorAll('input').forEach(i => { i.disabled = on; });
+}
+
+/* ---------- run ---------- */
+async function run(){
+  const names = parseNames(els.names.value);
+  const tlds = selectedTlds();
+  if (!names.length){ failRun('No names given. Enter at least one name (in the URL: ?q=name1,name2).'); return; }
+  if (!tlds.length && names.every(n => !n.includes('.'))){ failRun('No endings selected. Pick at least one (in the URL: &tld=com,com.au).'); return; }
+  let targets = buildTargets(names, tlds);
+  const candidateCount = targets.length;
+  const truncated = targets.length > MAX_DOMAINS;
+  if (truncated) targets = targets.slice(0, MAX_DOMAINS);
+  store.set('last-input', { names: els.names.value, tlds });
+
+  abort = new AbortController(); const signal = abort.signal;
+  runState = 'RUNNING'; runStarted = Date.now(); runError = null;
+  runNote = truncated ? `truncated to first ${MAX_DOMAINS} of ${candidateCount}` : '';
+  results = targets.map(d => VALID.test(d)
+    ? { domain: d, code: 'pending', label: 'Checking', detail: '', dns: '', source: '' }
+    : { domain: d, code: 'invalid', label: 'Invalid', detail: 'Not a valid hostname', dns: '', source: '' });
+  renderAll(); setRunning(true); setProgress(0, results.length);
+  setStatus(truncated ? `Checking the first ${MAX_DOMAINS} of ${candidateCount} candidates…` : `Checking ${results.length} candidate${results.length === 1 ? '' : 's'}…`);
+
+  const map = await loadBootstrap(signal).catch(() => null);
+  if (signal.aborted){ finish(true); return; }
+  els.source.textContent = map ? 'RDAP servers from IANA bootstrap' : 'RDAP via rdap.org (bootstrap list unavailable)';
+
+  let done = results.filter(r => r.code !== 'pending').length;
+  const queue = results.filter(r => r.code === 'pending');
+  const workers = Array.from({ length: CONCURRENCY }, async () => {
+    while (queue.length && !signal.aborted){
+      const r = queue.shift();
+      try { await checkOne(r, map, signal); }
+      catch (e) {
+        if (signal.aborted){ r.code = 'cancelled'; r.label = 'Cancelled'; }
+        else { r.code = 'unknown'; r.label = 'Unknown'; r.detail = String(e && e.message || e); }
+      }
+      done++; renderRow(r); renderSummary(); renderReport(); setProgress(done, results.length);
+    }
+  });
+  await Promise.all(workers);
+  finish(signal.aborted);
+}
+function finish(cancelled){
+  for (const r of results) if (r.code === 'pending'){ r.code = 'cancelled'; r.label = 'Cancelled'; r.detail = ''; }
+  runState = cancelled ? 'CANCELLED' : 'DONE';
+  setRunning(false); renderAll(); setProgress(results.length, results.length);
+  const c = counts();
+  setStatus(cancelled ? 'Cancelled.' : `Done — ${c.free} available, ${c.taken} taken${c.maybe ? `, ${c.maybe} need a look` : ''}${c.unknown ? `, ${c.unknown} unknown` : ''}.`);
+  store.set('last-results', { at: runStarted, state: runState, note: runNote, results });
+  abort = null;
+}
+
+/* ---------- events ---------- */
+els.run.addEventListener('click', () => { if (!abort) run(); });
+els.cancel.addEventListener('click', () => { abort?.abort(); });
+els.clear.addEventListener('click', () => {
+  if (abort) abort.abort();
+  els.names.value = ''; results = []; runState = 'IDLE'; runStarted = null; runError = null; runNote = '';
+  renderAll(); setProgress(0, 0); setStatus('Idle'); els.meta.textContent = '';
+  store.set('last-results', null); store.set('last-input', { names: '', tlds: selectedTlds() });
+});
+els.names.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter'){ e.preventDefault(); if (!abort) run(); } });
+function addTld(){
+  const t = els.newTld.value.trim().toLowerCase().replace(/^\.+/, '').replace(/\.+$/, '');
+  if (!t || !/^[a-z0-9.-]+$/.test(t)) { els.newTld.focus(); return; }
+  const current = selectedTlds();
+  if (!current.includes(t)) current.push(t);
+  renderTlds(current); els.newTld.value = '';
+}
+els.addTld.addEventListener('click', addTld);
+els.newTld.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); addTld(); } });
+els.tlds.addEventListener('change', () => { store.set('last-input', { names: els.names.value, tlds: selectedTlds() }); });
+els.copy.addEventListener('click', async () => {
+  const text = els.report.textContent;
+  try { await navigator.clipboard.writeText(text); flash('Copied'); }
+  catch {
+    const range = document.createRange(); range.selectNodeContents(els.report);
+    const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range);
+    flash('Selected — press Ctrl+C');
+  }
+});
+let flashTimer = null;
+function flash(msg){ els.copied.textContent = msg; clearTimeout(flashTimer); flashTimer = setTimeout(() => { els.copied.textContent = ''; }, 2500); }
+
+/* ---------- boot ---------- */
+const params = new URLSearchParams(location.search);
+const q = params.get('q');
+const tldParam = params.get('tld') || params.get('tlds');
+const last = store.get('last-input');
+let tlds = tldParam ? [...new Set(tldParam.toLowerCase().split(/[\s,]+/).map(t => t.replace(/^\.+|\.+$/g, '')).filter(Boolean))] : (q ? DEFAULT_TLDS : (last && last.tlds && last.tlds.length ? last.tlds : DEFAULT_TLDS));
+renderTlds(tlds);
+if (q){
+  els.names.value = q.split(/[\s,;]+/).filter(Boolean).join('\n');
+  run();
+} else {
+  if (last && typeof last.names === 'string') els.names.value = last.names;
+  const lr = store.get('last-results');
+  if (lr && Array.isArray(lr.results) && lr.results.length){
+    results = lr.results; runState = lr.state || 'DONE'; runStarted = lr.at || null; runNote = lr.note || '';
+    renderAll(); setProgress(results.length, results.length);
+    setStatus('Showing the last run, from ' + new Date(lr.at || Date.now()).toLocaleString() + '.');
+  } else {
+    renderReport();
+  }
+}
+})();
+</script>
+</body>
+</html>
