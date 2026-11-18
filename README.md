@@ -5,6 +5,8 @@ Small single-page tools that run entirely in the browser, served by GitHub Pages
 agent (Claude, or anything else that can drive a browser) can call it by opening a URL and reading
 the result off the page.
 
+It also holds a few [Claude Code plugins](#claude-code-plugins), in `claude-plugins/`.
+
 ## Tools
 
 | Tool | What it does | Live page |
@@ -28,7 +30,8 @@ Opened without params, a tool is an ordinary form and shows the last run made in
 
 ## The convention
 
-Every tool here follows the rules below, so a new tool can be called the moment it is pushed.
+Every browser tool here follows the rules below, so a new tool can be called the moment it is pushed.
+(The Claude Code plugins in `claude-plugins/` are not browser tools and don't follow them.)
 [domain-check](domain-check/) is the reference implementation, and its README shows a real report.
 
 ### Files
@@ -134,3 +137,23 @@ the page. The README is the full reference; keep the two in step.
 
 GitHub Pages, deployed from `main`, folder `/`. The empty `.nojekyll` file turns off Jekyll so every
 file is served exactly as committed. READMEs are for reading on GitHub; the pages are the tools.
+
+## Claude Code plugins
+
+This repo is also a Claude Code plugin marketplace: `.claude-plugin/marketplace.json` lists the
+plugins in `claude-plugins/`, one folder each.
+
+| Plugin | What it does |
+|---|---|
+| [context](claude-plugins/context/) | Shows how much of the context window is used, in the status line under the prompt |
+
+**Install** in the Claude desktop app: click **+** next to the prompt box, then **Plugins**,
+**Add marketplace** with `bencoman/toolshed`, then **Add plugin**. From a terminal session:
+
+```
+/plugin install <plugin> --marketplace bencoman/toolshed
+```
+
+**Adding a plugin:** put it in `claude-plugins/<plugin>/`, add an entry to
+`.claude-plugin/marketplace.json` and a row to the table above, then run
+`claude plugin validate .` from the repo root.
