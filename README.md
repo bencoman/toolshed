@@ -149,8 +149,8 @@ plugins in `claude-plugins/`, one folder each.
 
 **Install** in the Claude desktop app: click **+** next to the prompt box, then **Plugins** >
 **Manage plugins** > **Add** > **Add marketplace** > **Add from a repository**, enter
-`bencoman/toolshed` and **Sync**. Then pick the plugin and **Add to this computer**. It loads in
-sessions started after that. From a terminal session:
+`bencoman/toolshed` and **Sync**. Then pick the plugin and **Add to this computer**. It takes effect at once,
+in open sessions too. From a terminal session:
 
 ```
 /plugin install <plugin> --marketplace bencoman/toolshed

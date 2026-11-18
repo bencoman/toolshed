@@ -15,8 +15,7 @@ response, over the model's context window. Before the first response of a sessio
 
 In the Claude desktop app: click **+** next to the prompt box, then **Plugins** >
 **Manage plugins** > **Add** > **Add marketplace** > **Add from a repository**, enter `bencoman/toolshed` and
-**Sync**. Then pick **Context** and **Add to this computer**. It loads in sessions started after
-that.
+**Sync**. Then pick **Context** and **Add to this computer**. It takes effect at once, in open sessions too.
 
 From a terminal session:
 
