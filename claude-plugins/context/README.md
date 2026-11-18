@@ -13,8 +13,10 @@ response, over the model's context window. Before the first response of a sessio
 
 ## Install
 
-In the Claude desktop app: click **+** next to the prompt box, then **Plugins**, **Add marketplace**
-with `bencoman/toolshed`, then **Add plugin** and pick `context`.
+In the Claude desktop app: click **+** next to the prompt box, then **Plugins** >
+**Manage plugins** > **Add** > **Add marketplace** > **Add from a repository**, enter `bencoman/toolshed` and
+**Sync**. Then pick **Context** and **Add to this computer**. It loads in sessions started after
+that.
 
 From a terminal session:
 
