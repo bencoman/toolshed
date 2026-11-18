@@ -8,8 +8,10 @@ context 11% (110k / 1000k)
 ```
 
 The figures are the ones Claude Code gives its own status line: input tokens from the last
-response, over the model's context window. Before the first response of a session, and right after
-`/compact`, it shows `--`. It updates after every turn.
+response, over the model's context window. It updates after every turn.
+
+In the desktop app a new session has no line until you send the first prompt, because plugins load
+only then. After `/clear` the line is blank until the first turn ends.
 
 ## Install
 
