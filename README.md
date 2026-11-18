@@ -147,10 +147,18 @@ plugins in `claude-plugins/`, one folder each.
 |---|---|
 | [context](claude-plugins/context/) | Shows how much of the context window is used, in the status line under the prompt |
 
-**Install** in the Claude desktop app: click **+** next to the prompt box, then **Plugins** >
-**Manage plugins** > **Add** > **Add marketplace** > **Add from a repository**, enter
-`bencoman/toolshed` and **Sync**. Then pick the plugin and **Add to this computer**. It takes effect at once,
-in open sessions too. From a terminal session:
+**Install** in the Claude desktop app:
+
+1. Click **+** next to the prompt box, then **Plugins**.
+2. Click **Manage plugins**.
+3. Click **Add**, then **Add marketplace**.
+4. Click **Add from a repository**.
+5. Enter `bencoman/toolshed` and click **Sync**.
+6. Pick the plugin and click **Add to this computer**.
+
+It takes effect at once, in open sessions too.
+
+From a terminal session:
 
 ```
 /plugin install <plugin> --marketplace bencoman/toolshed
